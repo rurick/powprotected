@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	maxSize = 1024
-	minSize = 100
-	maxLen  = 10
-	minLen  = 5
+	maxSize = 10000
+	minSize = 8000
+	maxLen  = 4
+	minLen  = 2
 	dict    = "1234567890abcdefghijklmnopqrstuvwxyABCDEFGHIJKLMNOPQRSTUVWXYZ"
 )
 

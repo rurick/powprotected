@@ -3,20 +3,18 @@ package server
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/rurick/powprotected/internal/app"
 	"github.com/rurick/powprotected/internal/domain/challenge"
 	"github.com/rurick/powprotected/internal/domain/wow"
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	tcpBuffSize  = 2048
-	ttl          = 5 * time.Second
-	handlerTtl   = 10 * time.Second
+	handlerTtl   = 5 * time.Second
 	accessDenied = "Error: access denied"
 )
 
@@ -44,7 +42,7 @@ func (s *TCPServer) Start(ctx context.Context) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to listen addr %s with error: %w", s.addr, err)
 	}
-	s.logger.Info("listen addr: %s", s.addr)
+	s.logger.Infof("listen tcp connection to %s", s.addr)
 	s.ctx = ctx
 	go s.serve()
 	go func() {
@@ -65,8 +63,10 @@ func (s *TCPServer) Stop() {
 	s.wg.Wait()
 }
 
+// обработка установленых соединений
 func (s *TCPServer) serve() {
 	for {
+		// step 1 - установлено соединение
 		conn, err := s.l.Accept()
 		if err != nil {
 			select {
@@ -78,6 +78,7 @@ func (s *TCPServer) serve() {
 				continue
 			}
 		}
+		s.logger.Info("connect from ", conn.RemoteAddr())
 		go func() {
 			if err := s.handle(conn); err != nil {
 				s.logger.Errorf("handle error: %v", err)
@@ -87,24 +88,32 @@ func (s *TCPServer) serve() {
 	}
 }
 
+// обмен данными с клиентом. проверка доступа и передача результата
 func (s *TCPServer) handle(conn net.Conn) error {
 	s.wg.Add(1)
-	defer func() {
+	closed := make(chan bool)
+	defer func(closed chan bool) {
 		s.wg.Done()
 		if err := conn.Close(); err != nil {
 			s.logger.Errorf("can't close connection: %v", err)
+			return
 		}
-	}()
-	go func() {
+		close(closed)
+		s.logger.Info("connection closed")
+	}(closed)
+	go func(closed chan bool) {
 		<-time.After(handlerTtl)
-		_ = conn.Close()
-	}()
+		select {
+		case <-closed:
+		default:
+			_ = conn.Close()
+			s.logger.Info("connection closed by timeout")
+		}
+	}(closed)
 
-	// step 1 - установлено соединение
-	//
 	// step 2 - отправка челенжа
 	c := challenge.NewChallenge()
-	out := challenge.NewRequest(c)
+	out := challenge.NewRequest(c.Set(), c.Hash())
 	buf, err := out.Encode()
 	if err != nil {
 		return fmt.Errorf("encode error: %v", err)
@@ -118,11 +127,11 @@ func (s *TCPServer) handle(conn net.Conn) error {
 	if err != nil {
 		return err
 	}
-	hash := string(data)
+	choice := string(data)
 
 	// step 4 - поверка и отправка ответа
 	answer := accessDenied
-	if hash == c.Hash() {
+	if choice == c.Choice() {
 		g := wow.New()
 		answer = g.Get()
 	}
@@ -133,40 +142,9 @@ func (s *TCPServer) handle(conn net.Conn) error {
 }
 
 func (s TCPServer) write(conn net.Conn, data []byte) error {
-	for {
-		size := min(tcpBuffSize, len(data))
-		if size == 0 {
-			break
-		}
-		n, err := conn.Write(data[:size])
-		if err != nil {
-			return err
-		}
-		data = data[n:]
-	}
-	return nil
+	return app.Write(conn, data)
 }
 
 func (s *TCPServer) read(conn net.Conn) ([]byte, error) {
-	buf := make([]byte, tcpBuffSize)
-	if err := conn.SetReadDeadline(time.Now().Add(ttl)); err != nil {
-		return nil, fmt.Errorf("can't set read deadline: %v", err)
-	}
-	for {
-		n, err := conn.Read(buf)
-		if err != nil && err != io.EOF {
-			return nil, fmt.Errorf("read error: %v", err)
-		}
-		if n == 0 {
-			return buf, nil
-		}
-		s.logger.Info("received from %v: %s", conn.RemoteAddr(), string(buf[:n]))
-	}
-}
-
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
+	return app.Read(conn)
 }

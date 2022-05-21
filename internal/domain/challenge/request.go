@@ -1,31 +1,25 @@
 package challenge
 
 import (
-	"bytes"
-	"encoding/gob"
+	"encoding/json"
 )
 
-const HashMethod = "SHA1"
-
 type Request struct {
-	set    []string // словарь
-	answer string   // хэш ответа
-	method string   // метод построение хеша
+	Set    []string // словарь
+	Answer string   // хэш ответа
 }
 
-func NewRequest(c *Challenge) *Request {
+func NewRequest(set []string, answer string) *Request {
 	return &Request{
-		method: HashMethod,
-		set:    c.Set(),
-		answer: c.Hash(),
+		Set:    set,
+		Answer: answer,
 	}
 }
 
 func (c *Request) Encode() ([]byte, error) {
-	buf := bytes.Buffer{}
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(c); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return json.Marshal(c)
+}
+
+func (c *Request) Decode(data []byte) error {
+	return json.Unmarshal(data, c)
 }

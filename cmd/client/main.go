@@ -1,39 +1,59 @@
 // Copyright (c) 2022 Yuriy Iovkov
 
-package client
+package main
 
 import (
 	"context"
 	"errors"
+	"flag"
+	"fmt"
+	"net"
+	"time"
 
-	"github.com/rurick/powprotected/pkg/dotenv"
+	"github.com/rurick/powprotected/internal/app/client"
 	"github.com/rurick/powprotected/pkg/shutdown"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
+const terminateTimeout = 10 * time.Second
+
 func main() {
-	dotenv.Overload()
 	log := logrus.New()
-	if err := run(log); err != nil {
-		log.Fatal(err)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	addr := flag.String("a", "127.0.0.1:8888", "server address")
+	flag.Parse()
+	if addr == nil {
+		log.Fatal("server address is not set")
 	}
-}
 
-func run(log *logrus.Logger) error {
-	eg, ctx := errgroup.WithContext(context.Background())
-
-	// обработка сигналов ОС
 	sigHandler := shutdown.TermSignalTrap()
-	eg.Go(func() error {
-		return sigHandler.Wait(ctx)
-	})
+	go func() {
+		if err := sigHandler.Wait(ctx); err != nil &&
+			!errors.Is(err, shutdown.ErrTermSig) &&
+			!errors.Is(err, context.Canceled) {
+			log.Fatal(err)
+		}
+		cancel()
+		log.Info("termination by sig")
+		<-time.After(terminateTimeout)
+		log.Fatal("termination timeout")
+	}()
 
-	if err := eg.Wait(); err != nil &&
-		!errors.Is(err, shutdown.ErrTermSig) &&
-		!errors.Is(err, context.Canceled) {
-		return err
+	// run client
+	log.Infof("connecting to %s", *addr)
+	conn, err := net.Dial("tcp", *addr)
+	if err != nil {
+		log.Fatal("can't context to the server")
 	}
-	log.Info("graceful shutdown successfully finished")
-	return nil
+	log.Info("connected")
+	cl := client.New(conn, log)
+	wow, err := cl.Run()
+	if err != nil {
+		log.Errorf("run time error: %v", err)
+	}
+
+	fmt.Printf("Server answer: %s", string(wow))
+
 }

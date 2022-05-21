@@ -1,6 +1,6 @@
 // Copyright (c) 2022 Yuriy Iovkov
 
-package server
+package main
 
 import (
 	"context"
