@@ -1,0 +1,14 @@
+version: "3.1"
+services:
+  server:
+    build: ./server
+    container_name: server
+    ports:
+      - 8888:8888
+  client:
+    build: ./client
+    container_name: client
+    environment:
+      POW_APP_TCP_ADDRESS:
+        server:8888
+

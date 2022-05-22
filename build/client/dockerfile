@@ -1,0 +1,8 @@
+FROM golang:1.16-alpine
+
+ENV GO111MODULE=on
+RUN apk add git
+RUN go install github.com/rurick/powprotected/cmd/client@6d0675d29d70048069725922a73421d37c4af6a1
+
+ENTRYPOINT /go/bin/client
+

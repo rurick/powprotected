@@ -5,9 +5,9 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"net"
+	"os"
 	"time"
 
 	"github.com/rurick/powprotected/internal/app/client"
@@ -16,16 +16,20 @@ import (
 )
 
 const terminateTimeout = 10 * time.Second
+const (
+	envTCPAddr     = "POW_APP_TCP_ADDRESS"
+	defaultTCPAddr = "127.0.0.1:8888"
+)
 
 func main() {
 	log := logrus.New()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	addr := flag.String("a", "127.0.0.1:8888", "server address")
-	flag.Parse()
-	if addr == nil {
-		log.Fatal("server address is not set")
+	addr, ok := os.LookupEnv(envTCPAddr)
+	if !ok {
+		log.Info("env not found:", envTCPAddr)
+		addr = defaultTCPAddr
 	}
 
 	sigHandler := shutdown.TermSignalTrap()
@@ -42,8 +46,8 @@ func main() {
 	}()
 
 	// run client
-	log.Infof("connecting to %s", *addr)
-	conn, err := net.Dial("tcp", *addr)
+	log.Infof("connecting to %s", addr)
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		log.Fatal("can't context to the server")
 	}
