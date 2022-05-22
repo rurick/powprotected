@@ -1,8 +1,10 @@
 FROM golang:1.16-alpine
 
-RUN go install github.com/rurick/powprotected/cmd/server@657c27555f37690587064d690347130302f6685e
+ENV GO111MODULE=on
+RUN apk add git
+RUN go install github.com/rurick/powprotected/cmd/server@6d0675d29d70048069725922a73421d37c4af6a1
 
-ENV POW_APP_TCP_ADDRESS=:8888
+ENV POW_APP_TCP_ADDRESS=0.0.0.0:8888
 ENTRYPOINT /go/bin/server
 
 EXPOSE 8888

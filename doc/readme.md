@@ -1,15 +1,13 @@
 # run server:
 ```shell
 $ cd build/server
-$ docker build . -t pow-server
-$ docker run  pow-server
-
+$ docker build . -t pow-server 
+$ docker run --name pow-server -p 8888:8888 pow-server  
 ```
 
 #run client:
 ```shell
 $ cd build/client
-$ docker build . -t pow-client
-$ docker run  pow-client
+$ go run ./../../cmd/client/main.go
 
 ```
