@@ -7,7 +7,6 @@ $ docker run --name pow-server -p 8888:8888 pow-server
 
 #run client:
 ```shell
-$ cd build/client
-$ go run ./../../cmd/client/main.go
+$ go run cmd/client/main.go
 
 ```
