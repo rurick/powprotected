@@ -1,0 +1,5 @@
+FROM golang:1.16-alpine
+
+RUN go install github.com/rurick/powprotected/cmd/client@657c27555f37690587064d690347130302f6685e
+
+ENTRYPOINT /go/bin/client

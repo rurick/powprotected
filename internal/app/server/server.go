@@ -57,8 +57,10 @@ func (s *TCPServer) Stop() {
 	defer s.logger.Info("tcp server stopped")
 	close(s.stopped)
 
-	if err := s.l.Close(); err != nil {
-		s.logger.Error(err)
+	if s.l != nil {
+		if err := s.l.Close(); err != nil {
+			s.logger.Error(err)
+		}
 	}
 	s.wg.Wait()
 }
